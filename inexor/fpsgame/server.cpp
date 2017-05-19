@@ -14,13 +14,6 @@
 
 namespace server
 {
-    struct server_entity            // server side version of "entity" type
-    {
-        int type;
-        int spawntime;
-        bool spawned;
-    };
-
 
     int gamemode = 0;
 
@@ -388,16 +381,6 @@ namespace server
         shouldcheckteamkills = false;
     }
 
-// client managment
-    void *newclientinfo() { return new clientinfo; }
-    void deleteclientinfo(void *ci) { delete (clientinfo *)ci; }
-
-    clientinfo *getinfo(int n)
-    {
-        if(n < MAXCLIENTS) return (clientinfo *)getclientinfo(n);
-        n -= MAXCLIENTS;
-        return bots.inrange(n) ? bots[n] : NULL;
-    }
 
     uint mcrc = 0;
     vector<entity> ments;
@@ -3155,11 +3138,7 @@ namespace server
 
             default:
             {
-                if(smode == &capturemode && parse_server_capture_message(type, ci, cq, p)) return;
-                if(smode == &collectmode && parse_server_collect_message(type, ci, cq, p)) return;
-                if(smode == &ctfmode && parse_server_ctf_message(type, ci, cq, p)) return;
-                if(smode == &bombmode && parse_server_bomb_message(type, ci, cq, p)) return;
-                if(smode == &hideandseekmode && parse_server_hideandseek_message(type, ci, cq, p)) return;
+                if(smode && smode->parse_network_message(type, ci, cq, p)) return;
                 genericmsg:
                 {
                     int size = msgsizelookup(type);

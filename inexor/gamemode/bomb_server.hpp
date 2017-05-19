@@ -1,10 +1,9 @@
 #pragma once
 #include "inexor/fpsgame/game.hpp"
-#include "inexor/fpsgame/network_types.hpp"
 #include "inexor/gamemode/bomb_common.hpp"
 #include "inexor/gamemode/gamemode_server.hpp"
 
-
+namespace server {
 extern void sendspawn(clientinfo *ci);
 
 struct bombservermode : servmode, bombmode
@@ -13,7 +12,7 @@ struct bombservermode : servmode, bombmode
     vector<spawnloc*> spawnlocs;
     int sequence, timecounter, countdown;
 
-#define COUNTDOWNSECONDS 3
+    static constexpr int COUNTDOWNSECONDS = 3;
 
     void setup()
     {
@@ -198,33 +197,31 @@ struct bombservermode : servmode, bombmode
         spawnlocs.deletecontents();
     }
 
+    bool parse_network_message(int type, clientinfo *ci, clientinfo *cq, packetbuf &p) override
+    {
+        switch(type)
+        {
+            /*
+            case N_KILLMOVABLE:
+            {
+            int id = getint(p);
+            // if(m_bomb) bombmode.kill(flag, version, spawnindex, team, score);
+            break;
+            }
+            */
+
+            case N_SPAWNLOC:
+            {
+                if(!parsespawnloc(p, (ci->state.state!=CS_SPECTATOR || ci->privilege || ci->local) && !strcmp(ci->clientmap, smapname)))
+                    disconnect_client(ci->clientnum, DISC_MSGERR);
+                return true;
+            }
+        }
+        return false;
+    }
 };
 
 
-/// process bomb mode specific network messages.
-/// @param ci the sender.
-/// @param cq the currently focused player (sender or bot from senders pc)
-/// @return whether this messages got processed.
-inline bool parse_server_bomb_message(int type, clientinfo *ci, clientinfo *cq, packetbuf &p)
-{
-    switch(type)
-    {
-        /*
-        case N_KILLMOVABLE:
-        {
-        int id = getint(p);
-        // if(m_bomb) bombmode.kill(flag, version, spawnindex, team, score);
-        break;
-        }
-        */
 
-        case N_SPAWNLOC:
-        {
-            if(!bombmode.parsespawnloc(p, (ci->state.state!=CS_SPECTATOR || ci->privilege || ci->local) && !strcmp(ci->clientmap, smapname)))
-                disconnect_client(ci->clientnum, DISC_MSGERR);
-            return true;
-        }
-    }
-    return false;
-}
 
+} // ns server

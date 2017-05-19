@@ -1,14 +1,14 @@
 #pragma once
 #include "inexor/fpsgame/game.hpp"
-#include "inexor/fpsgame/network_types.hpp"
 #include "inexor/gamemode/capture_common.hpp"
 #include "inexor/gamemode/gamemode_server.hpp"
+#include "inexor/util/legacy_time.hpp"
 
-struct captureservermode : servmode, capturemode
+namespace server {
+
+struct captureservermode : servmode, capturemode_common
 {
-    bool notgotbases;
-
-    captureservermode() : notgotbases(false) {}
+    bool notgotbases = false;
 
     void reset(bool empty)
     {
@@ -312,24 +312,24 @@ struct captureservermode : servmode, capturemode
         loopvj(bases) if(!strcmp(bases[j].owner, team)) putint(p, j);
         return true;
     }
+
+    bool parse_network_message(int type, clientinfo *ci, clientinfo *cq, packetbuf &p) override
+    {
+        switch(type)
+        {
+            case N_BASES:
+                parsebases(p, (ci->state.state!=CS_SPECTATOR || ci->privilege || ci->local) && !strcmp(ci->clientmap, smapname));
+                return true;
+
+            case N_REPAMMO:
+                if((ci->state.state!=CS_SPECTATOR || ci->local || ci->privilege) && cq) replenishammo(cq);
+                return true;
+        }
+        return false;
+    }
 };
 
 
-/// process capture mode specific network messages.
-/// @param ci the sender.
-/// @param cq the currently focused player (sender or bot from senders pc)
-/// @return whether this messages got processed.
-inline bool parse_server_capture_message(int type, clientinfo *ci, clientinfo *cq, packetbuf &p)
-{
-    switch(type)
-    {
-        case N_BASES:
-            capturemode.parsebases(p, (ci->state.state!=CS_SPECTATOR || ci->privilege || ci->local) && !strcmp(ci->clientmap, smapname));
-            return true;
 
-        case N_REPAMMO:
-            if((ci->state.state!=CS_SPECTATOR || ci->local || ci->privilege) && cq) capturemode.replenishammo(cq);
-            return true;
-    }
-    return false;
-}
+
+} // ns server

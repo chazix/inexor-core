@@ -1,106 +1,9 @@
 #pragma once
 #include "inexor/fpsgame/game.hpp"
-#include "inexor/fpsgame/network_types.hpp"
 
-struct baseinfo
-{
-    vec o;
-    string owner, enemy;
-#ifndef SERVMODE
-    vec ammopos;
-    string name, info;
-    entitylight light;
-#endif
-    int ammogroup, ammotype, ammo, owners, enemies, converted, capturetime;
+#include <algorithm>
 
-    baseinfo() { reset(); }
-
-    bool valid() const { return ammotype>0 && ammotype<=I_CARTRIDGES-I_SHELLS+1; }
-
-    void noenemy()
-    {
-        enemy[0] = '\0';
-        enemies = 0;
-        converted = 0;
-    }
-
-    void reset()
-    {
-        noenemy();
-        owner[0] = '\0';
-        capturetime = -1;
-        ammogroup = 0;
-        ammotype = 0;
-        ammo = 0;
-        owners = 0;
-    }
-
-    bool enter(const char *team)
-    {
-        if(!strcmp(owner, team))
-        {
-            owners++;
-            return false;
-        }
-        if(!enemies)
-        {
-            if(strcmp(enemy, team))
-            {
-                converted = 0;
-                copystring(enemy, team);
-            }
-            enemies++;
-            return true;
-        } else if(strcmp(enemy, team)) return false;
-        else enemies++;
-        return false;
-    }
-
-    bool steal(const char *team)
-    {
-        return !enemies && strcmp(owner, team);
-    }
-
-    bool leave(const char *team)
-    {
-        if(!strcmp(owner, team) && owners > 0)
-        {
-            owners--;
-            return false;
-        }
-        if(strcmp(enemy, team) || enemies <= 0) return false;
-        enemies--;
-        return !enemies;
-    }
-
-    int occupy(const char *team, int units)
-    {
-        if(strcmp(enemy, team)) return -1;
-        converted += units;
-        if(units<0)
-        {
-            if(converted<=0) noenemy();
-            return -1;
-        } else if(converted<(owner[0] ? int(OCCUPYENEMYLIMIT) : int(OCCUPYNEUTRALLIMIT))) return -1;
-        if(owner[0]) { owner[0] = '\0'; converted = 0; copystring(enemy, team); return 0; } else { copystring(owner, team); ammo = 0; capturetime = 0; owners = enemies; noenemy(); return 1; }
-    }
-
-    bool addammo(int i)
-    {
-        if(ammo>=MAXAMMO) return false;
-        ammo = min(ammo+i, int(MAXAMMO));
-        return true;
-    }
-
-    bool takeammo(const char *team)
-    {
-        if(strcmp(owner, team) || ammo<=0) return false;
-        ammo--;
-        return true;
-    }
-};
-
-struct capturemode
+struct capturemode_common
 {
     static const int CAPTURERADIUS = 64;
     static const int CAPTUREHEIGHT = 24;
@@ -118,6 +21,103 @@ struct capturemode
     static const int REPAMMODIST = 32;
     static const int RESPAWNSECS = 5;
     static const int MAXBASES = 100;
+
+    struct baseinfo
+    {
+        vec o;
+        string owner, enemy;
+        vec ammopos;
+        string name, info;
+        entitylight light;
+
+        int ammogroup, ammotype, ammo, owners, enemies, converted, capturetime;
+
+        baseinfo() { reset(); }
+
+        bool valid() const { return ammotype>0 && ammotype<=I_CARTRIDGES-I_SHELLS+1; }
+
+        void noenemy()
+        {
+            enemy[0] = '\0';
+            enemies = 0;
+            converted = 0;
+        }
+
+        void reset()
+        {
+            noenemy();
+            owner[0] = '\0';
+            capturetime = -1;
+            ammogroup = 0;
+            ammotype = 0;
+            ammo = 0;
+            owners = 0;
+        }
+
+        bool enter(const char *team)
+        {
+            if(!strcmp(owner, team))
+            {
+                owners++;
+                return false;
+            }
+            if(!enemies)
+            {
+                if(strcmp(enemy, team))
+                {
+                    converted = 0;
+                    copystring(enemy, team);
+                }
+                enemies++;
+                return true;
+            } else if(strcmp(enemy, team)) return false;
+            else enemies++;
+            return false;
+        }
+
+        bool steal(const char *team)
+        {
+            return !enemies && strcmp(owner, team);
+        }
+
+        bool leave(const char *team)
+        {
+            if(!strcmp(owner, team) && owners > 0)
+            {
+                owners--;
+                return false;
+            }
+            if(strcmp(enemy, team) || enemies <= 0) return false;
+            enemies--;
+            return !enemies;
+        }
+
+        int occupy(const char *team, int units)
+        {
+            if(strcmp(enemy, team)) return -1;
+            converted += units;
+            if(units<0)
+            {
+                if(converted<=0) noenemy();
+                return -1;
+            } else if(converted<(owner[0] ? int(OCCUPYENEMYLIMIT) : int(OCCUPYNEUTRALLIMIT))) return -1;
+            if(owner[0]) { owner[0] = '\0'; converted = 0; copystring(enemy, team); return 0; } else { copystring(owner, team); ammo = 0; capturetime = 0; owners = enemies; noenemy(); return 1; }
+        }
+
+        bool addammo(int i)
+        {
+            if(ammo>=MAXAMMO) return false;
+            ammo = std::min(ammo+i, int(MAXAMMO));
+            return true;
+        }
+
+        bool takeammo(const char *team)
+        {
+            if(strcmp(owner, team) || ammo<=0) return false;
+            ammo--;
+            return true;
+        }
+    };
 
     vector<baseinfo> bases;
 

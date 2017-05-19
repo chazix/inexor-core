@@ -1,12 +1,11 @@
 #pragma once
 #include "inexor/fpsgame/game.hpp"
-#include "inexor/fpsgame/network_types.hpp"
 
 #define collectteambase(s) (!strcmp(s, "good") ? 1 : (!strcmp(s, "evil") ? 2 : 0))
 #define collectbaseteam(i) (i==1 ? "good" : (i==2 ? "evil" : NULL))
 
 
-struct collectmode
+struct collectmode_common
 {
     static const int BASERADIUS = 16;
     static const int BASEHEIGHT = 16;
@@ -93,7 +92,7 @@ struct collectmode
         return NULL;
     }
 
-    token &droptoken(int team, int droptime)
+    token &droptoken(const vec &o, int team, int droptime)
     {
         token &t = tokens.add();
         t.o = o;
@@ -143,8 +142,7 @@ struct collectmode
 
     bool insidebase(const base &b, const vec &o)
     {
-        const vec delta = f.spawnloc - o;
-        return delta.x*delta.x + delta.y*delta.y <= BASERADIUS*BASERADIUS
-               && fabs(delta.z) <= BASEHEIGHT;
+        float dx = (b.o.x-o.x), dy = (b.o.y-o.y), dz = (b.o.z-o.z);
+        return dx*dx + dy*dy <= BASERADIUS*BASERADIUS && fabs(dz) <= BASEHEIGHT;
     }
 };

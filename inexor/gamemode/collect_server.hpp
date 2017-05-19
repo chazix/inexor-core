@@ -1,15 +1,15 @@
 #pragma once
 #include "inexor/fpsgame/game.hpp"
-#include "inexor/fpsgame/network_types.hpp"
 #include "inexor/gamemode/collect_common.hpp"
 #include "inexor/gamemode/gamemode_server.hpp"
 
-struct collectservermode : servmode, collectmode
-{
+namespace server {
 
+struct collectservermode : servmode, collectmode_common
+{
     token &droptoken(const vec &o, int yaw, int team, int droptime, int dropper)
     {
-        token &t = collectmode::droptoken(team, droptime);
+        token &t = collectmode_common::droptoken(o, team, droptime);
         if(++nexttoken < 0) nexttoken = 1;
         t.id = nexttoken;
         t.dropper = dropper;
@@ -243,35 +243,33 @@ struct collectservermode : servmode, collectmode
             notgotbases = false;
         }
     }
+
+    bool parse_network_message(int type, clientinfo *ci, clientinfo *cq, packetbuf &p) override
+    {
+        switch(type)
+        {
+            case N_INITTOKENS:
+                parsebases(p, (ci->state.state!=CS_SPECTATOR || ci->privilege || ci->local) && !strcmp(ci->clientmap, smapname));
+                return true;
+
+            case N_TAKETOKEN:
+            {
+                int id = getint(p);
+                if((ci->state.state!=CS_SPECTATOR || ci->local || ci->privilege) && cq) taketoken(cq, id);
+                return true;
+            }
+
+            case N_DEPOSITTOKENS:
+            {
+                int id = getint(p);
+                if((ci->state.state!=CS_SPECTATOR || ci->local || ci->privilege) && cq) deposittokens(cq, id);
+                return true;
+            }
+        }
+        return false;
+    }
 };
 
 
-/// process collect mode specific network messages.
-/// @param ci the sender.
-/// @param cq the currently focused player (sender or bot from senders pc)
-/// @return whether this messages got processed.
-inline bool parse_server_collect_message(int type, clientinfo *ci, clientinfo *cq, packetbuf &p)
-{
-    switch(type)
-    {
-        case N_INITTOKENS:
-            collectmode.parsebases(p, (ci->state.state!=CS_SPECTATOR || ci->privilege || ci->local) && !strcmp(ci->clientmap, smapname));
-            return true;
 
-        case N_TAKETOKEN:
-        {
-            int id = getint(p);
-            if((ci->state.state!=CS_SPECTATOR || ci->local || ci->privilege) && cq) collectmode.taketoken(cq, id);
-            return true;
-        }
-
-        case N_DEPOSITTOKENS:
-        {
-            int id = getint(p);
-            if((ci->state.state!=CS_SPECTATOR || ci->local || ci->privilege) && cq) collectmode.deposittokens(cq, id);
-            return true;
-        }
-    }
-    return false;
-}
-
+} // ns server

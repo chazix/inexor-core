@@ -1,6 +1,8 @@
 #pragma once
-#include "inexor/fpsgame/game.hpp"
-#include "inexor/fpsgame/network_types.hpp"
+#include "inexor/shared/geom.hpp"
+
+namespace server
+{
 
 struct spawnloc
 {
@@ -15,3 +17,4 @@ struct bombmode
 {
 
 };
+} // ns server

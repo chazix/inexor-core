@@ -1,4 +1,23 @@
 #pragma once
+#include "inexor/fpsgame/game.hpp"
+#include "inexor/server/client_management.hpp"
+
+// TODO: make vector<players> extendable by mode
+
+namespace server {
+
+// true when map has changed and waiting for clients to send item
+extern bool notgotitems;
+
+extern int gamemode;
+
+extern string smapname;
+
+// TODO move to legacy_time.hpp
+extern int gamemillis, gamelimit;
+
+extern vector<entity> ments;
+extern vector<server_entity> sents;
 
 struct servmode
 {
@@ -31,4 +50,11 @@ struct servmode
     virtual int getteamscore(const char *team) { return 0; }
     virtual void getteamscores(vector<teamscore> &scores) {}
     virtual bool extinfoteam(const char *team, ucharbuf &p) { return false; }
+
+    /// process gamemode specific network messages.
+    /// @param ci the sender.
+    /// @param cq the currently focused player (sender or bot from senders pc)
+    /// @return whether this messages got processed.
+    virtual bool parse_network_message(int type, clientinfo *ci, clientinfo *cq, packetbuf &p) = 0;
 };
+} // ns server

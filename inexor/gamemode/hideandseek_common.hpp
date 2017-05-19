@@ -1,6 +1,4 @@
 #pragma once
-#include "inexor/fpsgame/game.hpp"
-#include "inexor/fpsgame/network_types.hpp"
 
 #define TEAM_HIDE "hide"
 #define TEAM_SEEK "seek"

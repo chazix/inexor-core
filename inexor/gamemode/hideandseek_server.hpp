@@ -1,8 +1,9 @@
 #pragma once
 #include "inexor/fpsgame/game.hpp"
-#include "inexor/fpsgame/network_types.hpp"
 #include "inexor/gamemode/hideandseek_common.hpp"
 #include "inexor/gamemode/gamemode_server.hpp"
+
+namespace server {
 
 struct hideandseekservermode : servmode, hideandseekmode
 {
@@ -197,25 +198,24 @@ struct hideandseekservermode : servmode, hideandseekmode
             sendf(clients[i]->clientnum, 1, "ri3s ", N_HUDANNOUNCE, 1000, E_STATIC_TOP, msg);
         }
     }
+
+    bool parse_network_message(int type, clientinfo *ci, clientinfo *cq, packetbuf &p) override
+    {
+        switch(type)
+        {
+            /*
+            case N_RACEFINISH:
+            {
+            break;
+            }
+            */
+            default: break;
+        }
+        return false;
+    }
 };
 
 
-/// process hideandseek mode specific network messages.
-/// @param ci the sender.
-/// @param cq the currently focused player (sender or bot from senders pc)
-/// @return whether this messages got processed.
-inline bool parse_server_hideandseek_message(int type, clientinfo *ci, clientinfo *cq, packetbuf &p)
-{
-    switch(type)
-    {
-        /*
-        case N_RACEFINISH:
-        {
-        break;
-        }
-        */
-        default: break;
-    }
-    return false;
-}
 
+
+} // ns server

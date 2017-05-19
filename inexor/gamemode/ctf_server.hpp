@@ -1,23 +1,28 @@
 #pragma once
 #include "inexor/fpsgame/game.hpp"
-#include "inexor/fpsgame/network_types.hpp"
 #include "inexor/gamemode/ctf_common.hpp"
 #include "inexor/gamemode/gamemode_server.hpp"
+#include "inexor/util/legacy_time.hpp"
 
-VAR(ctftkpenalty, 0, 1, 1);
+namespace server {
+
+VAR(ctftkpenalty, 0, 1, 1); // TODO remove
 
 struct ctfservermode : servmode, ctfmode
 {
     bool addflag(int i, const vec &o, int team, int invistime = 0)
     {
         if(!ctfmode::addflag(i, o, team)) return false;
+        flag &f = flags[i];
         f.invistime = invistime;
         return true;
     }
 
     void ownflag(int i, int owner, int owntime)
     {
-        ctfmode::ownflag(i, owntime);
+        flag &f = flags[i];
+        f.owntime = owntime;
+        f.owner_id = owner;
         if(owner == f.dropper) { if(f.dropcount < INT_MAX) f.dropcount++; } else f.dropcount = 0;
         f.dropper = -1;
         f.invistime = 0;
@@ -28,7 +33,7 @@ struct ctfservermode : servmode, ctfmode
         flag &f = flags[i];
         f.droptime = 0;
         f.dropcount = 0;
-        f.owner = f.dropper = -1;
+        f.owner_id = f.dropper = -1;
         f.invistime = invistime;
         f.runstart = 0;
     }
@@ -38,7 +43,7 @@ struct ctfservermode : servmode, ctfmode
 
     bool notgotflags;
 
-    ctfservmode() : notgotflags(false) {}
+    ctfservermode() : notgotflags(false) {}
 
     void reset(bool empty)
     {
@@ -91,10 +96,24 @@ struct ctfservermode : servmode, ctfmode
         reset(true);
     }
 
+    void dropflag(int i, const vec &o, int droptime, int dropper = -1, bool penalty = false)
+    {
+        flag &f = flags[i];
+        f.droploc = o;
+        f.droptime = droptime;
+        if(dropper < 0) f.dropcount = 0;
+        else if(penalty) f.dropcount = INT_MAX;
+        f.dropper = dropper;
+        f.owner_id = -1;
+        f.invistime = 0;
+        f.owner_pos = NULL;
+        if(!f.vistime) f.vistime = droptime;
+    }
+
     void dropflag(clientinfo *ci, clientinfo *dropper = NULL)
     {
         if(notgotflags) return;
-        loopv(flags) if(flags[i].owner==ci->clientnum)
+        loopv(flags) if(flags[i].owner_id == ci->clientnum)
         {
             flag &f = flags[i];
             if(m_protect && insidebase(f, ci->state.o))
@@ -164,11 +183,11 @@ struct ctfservermode : servmode, ctfmode
     {
         if(notgotflags || !flags.inrange(i) || ci->state.state!=CS_ALIVE || !ci->team[0]) return;
         flag &f = flags[i];
-        if((m_hold ? f.spawnindex < 0 : !ctfflagteam(f.team)) || f.owner>=0 || f.version != version || (f.droptime && f.dropper == ci->clientnum && f.dropcount >= 1)) return;
+        if((m_hold ? f.spawnindex < 0 : !ctfflagteam(f.team)) || f.owner_id>=0 || f.version != version || (f.droptime && f.dropper == ci->clientnum && f.dropcount >= 1)) return;
         int team = ctfteamflag(ci->team);
         if(m_hold || m_protect == (f.team==team))
         {
-            loopvj(flags) if(flags[j].owner==ci->clientnum) return;
+            loopvj(flags) if(flags[j].owner_id==ci->clientnum) return;
             if(!f.droptime) f.runstart = lastmillis;
             ownflag(i, ci->clientnum, lastmillis);
             sendf(-1, 1, "ri4", N_TAKEFLAG, ci->clientnum, i, ++f.version);
@@ -181,7 +200,7 @@ struct ctfservermode : servmode, ctfmode
             sendf(-1, 1, "ri4", N_RETURNFLAG, ci->clientnum, i, ++f.version);
         } else
         {
-            loopvj(flags) if(flags[j].owner==ci->clientnum) { scoreflag(ci, i, j); break; }
+            loopvj(flags) if(flags[j].owner_id==ci->clientnum) { scoreflag(ci, i, j); break; }
         }
     }
 
@@ -191,7 +210,7 @@ struct ctfservermode : servmode, ctfmode
         loopv(flags)
         {
             flag &f = flags[i];
-            if(f.owner<0 && f.droptime && lastmillis - f.droptime >= RESETFLAGTIME)
+            if(f.owner_id<0 && f.droptime && lastmillis - f.droptime >= RESETFLAGTIME)
             {
                 returnflag(i, m_protect ? lastmillis : 0);
                 if(m_hold) spawnflag(i);
@@ -202,9 +221,9 @@ struct ctfservermode : servmode, ctfmode
                 f.invistime = 0;
                 sendf(-1, 1, "ri3", N_INVISFLAG, i, 0);
             }
-            if(m_hold && f.owner>=0 && lastmillis - f.owntime >= HOLDSECS*1000)
+            if(m_hold && f.owner_id>=0 && lastmillis - f.owntime >= HOLDSECS*1000)
             {
-                clientinfo *ci = getinfo(f.owner);
+                clientinfo *ci = getinfo(f.owner_id);
                 if(ci) scoreflag(ci, i);
                 else
                 {
@@ -225,9 +244,9 @@ struct ctfservermode : servmode, ctfmode
             flag &f = flags[i];
             putint(p, f.version);
             putint(p, f.spawnindex);
-            putint(p, f.owner);
+            putint(p, f.owner_id);
             putint(p, f.invistime ? 1 : 0);
-            if(f.owner<0)
+            if(f.owner_id < 0)
             {
                 putint(p, f.droptime ? 1 : 0);
                 if(f.droptime)
@@ -261,34 +280,33 @@ struct ctfservermode : servmode, ctfmode
             notgotflags = false;
         }
     }
+
+    bool parse_network_message(int type, clientinfo *ci, clientinfo *cq, packetbuf &p) override
+    {
+        switch(type)
+        {
+            case N_TRYDROPFLAG:
+            {
+                if((ci->state.state!=CS_SPECTATOR || ci->local || ci->privilege) && cq) dropflag(cq);
+                return true;
+            }
+
+            case N_TAKEFLAG:
+            {
+                int flag = getint(p), version = getint(p);
+                if((ci->state.state!=CS_SPECTATOR || ci->local || ci->privilege) && cq) takeflag(cq, flag, version);
+                return true;
+            }
+
+            case N_INITFLAGS:
+                parseflags(p, (ci->state.state!=CS_SPECTATOR || ci->privilege || ci->local) && !strcmp(ci->clientmap, smapname));
+                return true;
+        }
+        return false;
+    }
 };
 
 
-/// process ctf mode specific network messages.
-/// @param ci the sender.
-/// @param cq the currently focused player (sender or bot from senders pc)
-/// @return whether this messages got processed.
-inline bool parse_server_ctf_message(int type, clientinfo *ci, clientinfo *cq, packetbuf &p)
-{
-    switch(type)
-    {
-        case N_TRYDROPFLAG:
-        {
-            if((ci->state.state!=CS_SPECTATOR || ci->local || ci->privilege) && cq) ctfmode.dropflag(cq);
-            return true;
-        }
 
-        case N_TAKEFLAG:
-        {
-            int flag = getint(p), version = getint(p);
-            if((ci->state.state!=CS_SPECTATOR || ci->local || ci->privilege) && cq) ctfmode.takeflag(cq, flag, version);
-            return true;
-        }
 
-        case N_INITFLAGS:
-            ctfmode.parseflags(p, (ci->state.state!=CS_SPECTATOR || ci->privilege || ci->local) && !strcmp(ci->clientmap, smapname));
-            return true;
-    }
-    return false;
-}
-
+} // ns server
