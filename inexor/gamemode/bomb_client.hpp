@@ -1,9 +1,9 @@
 #pragma once
 #include "inexor/fpsgame/game.hpp"
-#include "inexor/fpsgame/network_types.hpp"
 #include "inexor/gamemode/bomb_common.hpp"
 #include "inexor/gamemode/gamemode_client.hpp"
 
+namespace game {
 VARP(showbombs, 0, 1, 1);
 VARP(showbombradius, 0, 1, 1);
 VARP(showbombdelay, 0, 1, 1);
@@ -176,7 +176,7 @@ struct bombclientmode : clientmode, bombmode
         renderplayersposindicator();
     }
 
-    void renderscoreboard(g3d_gui &g, game::scoregroup &sg, int fgcolor, int bgcolor)
+    void renderscoreboard(g3d_gui &g, scoregroup &sg, int fgcolor, int bgcolor)
     {
         if(showbombs)
         {
@@ -244,20 +244,21 @@ struct bombclientmode : clientmode, bombmode
         entinmap(d);
     }
 
+    bool parse_network_message(int type, ucharbuf &p) override
+    {
+        switch(type)
+        {
+            case N_SPAWNLOC:
+            {
+                myspawnloc = getint(p);
+                return true;
+            }
+        }
+        return false;
+    }
 };
 
 extern bombclientmode bombmode;
 
-/// process bomb mode specific network messages.
-/// @param ci the sender.
-inline void parse_client_bomb_message(int type, clientinfo *ci, packetbuf &p)
-{
-    switch(type)
-    {
-        case N_SPAWNLOC:
-        {
-            bombmode.myspawnloc = getint(p);
-            break;
-        }
-    }
-}
+
+} // ns game

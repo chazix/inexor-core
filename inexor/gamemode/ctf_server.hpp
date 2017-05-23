@@ -106,7 +106,7 @@ struct ctfservermode : servmode, ctfmode
         f.dropper = dropper;
         f.owner_id = -1;
         f.invistime = 0;
-        f.owner_pos = NULL;
+        f.owner = NULL;
         if(!f.vistime) f.vistime = droptime;
     }
 

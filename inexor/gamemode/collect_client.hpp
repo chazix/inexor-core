@@ -1,19 +1,21 @@
 #pragma once
 #include "inexor/fpsgame/game.hpp"
-#include "inexor/fpsgame/network_types.hpp"
+#include "inexor/engine/sound.hpp"
 #include "inexor/gamemode/collect_common.hpp"
 #include "inexor/gamemode/gamemode_client.hpp"
 
-struct collectclientmode : clientmode, collectmode
+namespace game {
+
+struct collectclientmode : clientmode, collectmode_common
 {
+    static const int TOKENHEIGHT = 5;
 
     token &droptoken(int id, const vec &o, int team, int droptime)
     {
-        token &t = collectmode::droptoken(team, droptime);
+        token &t = collectmode_common::droptoken(o, team, droptime);
         t.id = id;
         return t;
     }
-    static const int TOKENHEIGHT = 5;
 
     void preload()
     {
@@ -22,7 +24,7 @@ struct collectclientmode : clientmode, collectmode
         preloadmodel("game/skull/red");
         preloadmodel("game/skull/blue");
         static const int sounds[] ={S_FLAGDROP, S_FLAGSCORE, S_FLAGFAIL};
-        loopi(sizeof(sounds)/sizeof(sounds[0])) preloadsound(sounds[i]);
+        loopi(sizeof(sounds)/sizeof(sounds[0])) inexor::sound::preloadsound(sounds[i]);
     }
 
     void drawblip(fpsent *d, float x, float y, float s, const vec &pos, float size = 0.05f)
@@ -253,7 +255,7 @@ struct collectclientmode : clientmode, collectmode
     {
         token *t = findtoken(id);
         if(!t) return;
-        playsound(S_ITEMAMMO, &t->o);
+        inexor::sound::playsound(S_ITEMAMMO, &t->o);
         removetoken(id);
     }
 
@@ -263,7 +265,7 @@ struct collectclientmode : clientmode, collectmode
         token *t = findtoken(id);
         if(t)
         {
-            playsound(t->team == team || (t->team < 0 && -t->team != team) ? S_ITEMAMMO : S_ITEMHEALTH, d!=player1 ? &d->o : NULL);
+            inexor::sound::playsound(t->team == team || (t->team < 0 && -t->team != team) ? S_ITEMAMMO : S_ITEMHEALTH, d!=player1 ? &d->o : NULL);
             removetoken(id);
         }
         d->tokens = total;
@@ -275,7 +277,7 @@ struct collectclientmode : clientmode, collectmode
         if(pos.z < 0) return NULL;
         token &t = droptoken(id, pos, team, lastmillis);
         lightreaching(vec(t.o).add(vec(0, 0, TOKENHEIGHT)), t.light.color, t.light.dir, true);
-        if(!n) playsound(S_ITEMSPAWN, d ? &d->o : &pos);
+        if(!n) inexor::sound::playsound(S_ITEMSPAWN, d ? &d->o : &pos);
         if(d)
         {
             if(!n)
@@ -299,7 +301,7 @@ struct collectclientmode : clientmode, collectmode
             {
                 b.laststeal = lastmillis;
                 spdlog::get("gameplay")->info("{0} stole a skull from {1}", teamcolorname(d), teamcolor("your team", collectbaseteam(enemyteam), "the enemy team"));
-                playsound(S_FLAGDROP, &b.tokenpos);
+                inexor::sound::playsound(S_FLAGDROP, &b.tokenpos);
             }
             if(t) particle_flare(b.tokenpos, vec(t->o.x, t->o.y, t->o.z + 0.5f*(TOKENHEIGHT + 1)), 500, PART_LIGHTNING, team==collectteambase(player1->team) ? 0x2222FF : 0xFF2222, 1.0f);
         }
@@ -311,7 +313,7 @@ struct collectclientmode : clientmode, collectmode
         {
             base &b = bases[basenum];
             b.laststeal = lastmillis;
-            //playsound(S_FLAGSCORE, d != player1 ? &b.tokenpos : NULL);
+            //inexor::sound::playsound(S_FLAGSCORE, d != player1 ? &b.tokenpos : NULL);
             int n = 0;
             loopv(bases)
             {
@@ -324,7 +326,7 @@ struct collectclientmode : clientmode, collectmode
         setscore(team, score);
 
         spdlog::get("gameplay")->info("{0} collected {1} {2} for {3}", teamcolorname(d), deposited, (deposited==1 ? "skull" : "skulls"), teamcolor("your team", collectbaseteam(team), "the enemy team"));
-        playsound(team==collectteambase(player1->team) ? S_FLAGSCORE : S_FLAGFAIL);
+        inexor::sound::playsound(team==collectteambase(player1->team) ? S_FLAGSCORE : S_FLAGFAIL);
 
         if(score >= SCORELIMIT) spdlog::get("gameplay")->info("{0} collected {1} skulls", teamcolor("your team", collectbaseteam(team), "the enemy team"), score);
     }
@@ -441,78 +443,76 @@ struct collectclientmode : clientmode, collectmode
         }
         return false;
     }
+
+    bool parse_network_message(int type, ucharbuf &p) override
+    {
+        switch(type)
+        {
+            case N_INITTOKENS:
+                parsetokens(p, m_collect);
+                return true;
+
+            case N_TAKETOKEN:
+            {
+                int ocn = getint(p), id = getint(p), total = getint(p);
+                fpsent *o = ocn==player1->clientnum ? player1 : newclient(ocn);
+                if(o && m_collect) taketoken(o, id, total);
+                return true;
+            }
+
+            case N_EXPIRETOKENS:
+                for(;;)
+                {
+                    int id = getint(p);
+                    if(p.overread() || id < 0) return true;
+                    if(m_collect) expiretoken(id);
+                }
+                return true;
+
+            case N_DROPTOKENS:
+            {
+                int ocn = getint(p);
+                fpsent *o = ocn==player1->clientnum ? player1 : newclient(ocn);
+                vec droploc;
+                loopk(3) droploc[k] = getint(p)/DMF;
+                for(int n = 0;; n++)
+                {
+                    int id = getint(p);
+                    if(id < 0) return true;
+                    int team = getint(p), yaw = getint(p);
+                    if(p.overread()) return true;
+                    if(o && m_collect) droptoken(o, id, droploc, team, yaw, n);
+                }
+                return true;
+            }
+
+            case N_STEALTOKENS:
+            {
+                int ocn = getint(p), team = getint(p), basenum = getint(p), enemyteam = getint(p), score = getint(p);
+                fpsent *o = ocn==player1->clientnum ? player1 : newclient(ocn);
+                vec droploc;
+                loopk(3) droploc[k] = getint(p)/DMF;
+                for(int n = 0;; n++)
+                {
+                    int id = getint(p);
+                    if(id < 0) return true;
+                    int yaw = getint(p);
+                    if(p.overread()) return true;
+                    if(o && m_collect) stealtoken(o, id, droploc, team, yaw, n, basenum, enemyteam, score);
+                }
+                return true;
+            }
+
+            case N_DEPOSITTOKENS:
+            {
+                int ocn = getint(p), base = getint(p), deposited = getint(p), team = getint(p), score = getint(p), flags = getint(p);
+                fpsent *o = ocn==player1->clientnum ? player1 : newclient(ocn);
+                if(o && m_collect) deposittokens(o, base, deposited, team, score, flags);
+                return true;
+            }
+        }
+        return false;
+    }
 };
 
-
-/// process collect mode specific network messages.
-/// @param ci the sender.
-inline void parse_client_collect_message(int type, clientinfo *ci, packetbuf &p)
-{
-    switch(type)
-    {
-        case N_INITTOKENS:
-            collectmode.parsetokens(p, m_collect);
-            break;
-
-        case N_TAKETOKEN:
-        {
-            int ocn = getint(p), id = getint(p), total = getint(p);
-            fpsent *o = ocn==player1->clientnum ? player1 : newclient(ocn);
-            if(o && m_collect) collectmode.taketoken(o, id, total);
-            break;
-        }
-
-        case N_EXPIRETOKENS:
-            for(;;)
-            {
-                int id = getint(p);
-                if(p.overread() || id < 0) break;
-                if(m_collect) collectmode.expiretoken(id);
-            }
-            break;
-
-        case N_DROPTOKENS:
-        {
-            int ocn = getint(p);
-            fpsent *o = ocn==player1->clientnum ? player1 : newclient(ocn);
-            vec droploc;
-            loopk(3) droploc[k] = getint(p)/DMF;
-            for(int n = 0;; n++)
-            {
-                int id = getint(p);
-                if(id < 0) break;
-                int team = getint(p), yaw = getint(p);
-                if(p.overread()) break;
-                if(o && m_collect) collectmode.droptoken(o, id, droploc, team, yaw, n);
-            }
-            break;
-        }
-
-        case N_STEALTOKENS:
-        {
-            int ocn = getint(p), team = getint(p), basenum = getint(p), enemyteam = getint(p), score = getint(p);
-            fpsent *o = ocn==player1->clientnum ? player1 : newclient(ocn);
-            vec droploc;
-            loopk(3) droploc[k] = getint(p)/DMF;
-            for(int n = 0;; n++)
-            {
-                int id = getint(p);
-                if(id < 0) break;
-                int yaw = getint(p);
-                if(p.overread()) break;
-                if(o && m_collect) collectmode.stealtoken(o, id, droploc, team, yaw, n, basenum, enemyteam, score);
-            }
-            break;
-        }
-
-        case N_DEPOSITTOKENS:
-        {
-            int ocn = getint(p), base = getint(p), deposited = getint(p), team = getint(p), score = getint(p), flags = getint(p);
-            fpsent *o = ocn==player1->clientnum ? player1 : newclient(ocn);
-            if(o && m_collect) collectmode.deposittokens(o, base, deposited, team, score, flags);
-            break;
-        }
-
-        default: break;
-    }
-}
+} // ns game

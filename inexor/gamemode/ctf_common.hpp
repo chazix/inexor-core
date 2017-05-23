@@ -1,8 +1,7 @@
 #pragma once
 #include "inexor/fpsgame/game.hpp"
+#include "inexor/engine/sound.hpp"
 #include "inexor/network/legacy/buffer_types.hpp"
-
-namespace server {
 
 #define ctfteamflag(s) (!strcmp(s, "good") ? 1 : (!strcmp(s, "evil") ? 2 : 0))
 #define ctfflagteam(i) (i==1 ? "good" : (i==2 ? "evil" : NULL))
@@ -18,7 +17,7 @@ struct flag
     /// time when the flagrun was initiated
     int runstart;
 
-    physent *owner_pos;
+    fpsent *owner; // TODO this is the only hard dependency to client specific code in the gamemode code!
     int owner_id;
 
     float dropangle, spawnangle;
@@ -42,7 +41,7 @@ struct flag
         owner_id = dropper = -1;
         invistime = owntime = runstart = 0;
         //if(id >= 0) loopv(players) players[i]->flagpickup &= ~(1<<id);
-        owner_pos = NULL;
+        owner = NULL;
         dropangle = spawnangle = 0;
         interploc = vec(0, 0, 0);
         interpangle = 0;
@@ -52,7 +51,7 @@ struct flag
 
     vec pos() const
     {
-        if(owner_pos) return vec(owner_pos->o).sub(owner_pos->eyeheight);
+        if(owner) return vec(owner->o).sub(owner->eyeheight);
         if(droptime) return droploc;
         return spawnloc;
     }
@@ -146,4 +145,3 @@ struct ctfmode
     }
 };
 
-} // ns server

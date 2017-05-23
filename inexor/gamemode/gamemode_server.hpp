@@ -13,6 +13,8 @@ extern int gamemode;
 
 extern string smapname;
 
+extern int interm;
+
 // TODO move to legacy_time.hpp
 extern int gamemillis, gamelimit;
 

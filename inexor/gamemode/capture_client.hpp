@@ -1,19 +1,17 @@
 #pragma once
 #include "inexor/fpsgame/game.hpp"
-#include "inexor/fpsgame/network_types.hpp"
+#include "inexor/gamemode/capture_common.hpp"
 #include "inexor/gamemode/gamemode_client.hpp"
+
+namespace game {
 
 VARP(capturetether, 0, 1, 1);
 VARP(autorepammo, 0, 1, 1);
 VARP(basenumbers, 0, 0, 1);
 
-struct captureclientmode : clientmode, capturemode
+struct captureclientmode : clientmode, capturemode_common
 {
     static const int AMMOHEIGHT = 5;
-
-    captureclientmode() : captures(0)
-    {
-    }
 
     void respawned(fpsent *d)
     {
@@ -91,8 +89,8 @@ struct captureclientmode : clientmode, capturemode
     {
         static const char * const basemodels[3] ={"game/base/neutral", "game/base/red", "game/base/blue"};
         loopi(3) preloadmodel(basemodels[i]);
-        preloadsound(S_V_BASECAP);
-        preloadsound(S_V_BASELOST);
+        inexor::sound::preloadsound(S_V_BASECAP);
+        inexor::sound::preloadsound(S_V_BASELOST);
     }
 
     void rendergame()
@@ -311,6 +309,7 @@ struct captureclientmode : clientmode, capturemode
 
     void updatebase(int i, const char *owner, const char *enemy, int converted, int ammo)
     {
+        using inexor::sound::playsound;
         if(!bases.inrange(i)) return;
         baseinfo &b = bases[i];
         if(owner[0])
@@ -502,6 +501,74 @@ struct captureclientmode : clientmode, capturemode
         b.type = ai::AI_S_DEFEND;
         return aidefend(d, b);
     }
+
+    bool parse_network_message(int type, ucharbuf &p) override
+    {
+        static char text[MAXTRANS];
+        switch(type)
+        {
+            case N_BASEINFO:
+            {
+                int base = getint(p);
+                string owner, enemy;
+                getstring(text, p);
+                copystring(owner, text);
+                getstring(text, p);
+                copystring(enemy, text);
+                int converted = getint(p), ammo = getint(p);
+                if(m_capture) updatebase(base, owner, enemy, converted, ammo);
+                return true;
+            }
+
+            case N_BASEREGEN:
+            {
+                int rcn = getint(p), health = getint(p), armour = getint(p), ammotype = getint(p), ammo = getint(p);
+                fpsent *regen = rcn==player1->clientnum ? player1 : getclient(rcn);
+                if(regen && m_capture)
+                {
+                    regen->health = health;
+                    regen->armourtype = A_GREEN;
+                    regen->armour = armour;
+                    if(ammotype>=GUN_SG && ammotype<=GUN_PISTOL) regen->ammo[ammotype] = ammo;
+                }
+                return true;
+            }
+
+            case N_BASES:
+            {
+                int numbases = getint(p);
+                loopi(numbases)
+                {
+                    int ammotype = getint(p);
+                    string owner, enemy;
+                    getstring(text, p);
+                    copystring(owner, text);
+                    getstring(text, p);
+                    copystring(enemy, text);
+                    int converted = getint(p), ammo = getint(p);
+                    initbase(i, ammotype, owner, enemy, converted, ammo);
+                }
+                return true;
+            }
+            case N_BASESCORE:
+            {
+                int base = getint(p);
+                getstring(text, p);
+                int total = getint(p);
+                if(m_capture) setscore(base, text, total);
+                return true;
+            }
+
+            case N_REPAMMO:
+            {
+                int rcn = getint(p), ammotype = getint(p);
+                fpsent *r = rcn==player1->clientnum ? player1 : getclient(rcn);
+                if(r && m_capture) receiveammo(r, ammotype);
+                return true;
+            }
+        }
+        return false;
+    }
 };
 
 extern captureclientmode capturemode;
@@ -509,83 +576,19 @@ ICOMMAND(repammo, "", (), capturemode.replenishammo());
 ICOMMAND(insidebases, "", (),
 {
     vector<char> buf;
-if(m_capture && player1->state == CS_ALIVE) loopv(capturemode.bases)
-{
-    captureclientmode::baseinfo &b = capturemode.bases[i];
-    if(b.valid() && capturemode.insidebase(b, player1->feetpos()))
+    if(m_capture && player1->state == CS_ALIVE) loopv(capturemode.bases)
     {
-        if(buf.length()) buf.add(' ');
-        defformatstring(basenum, "%d", i+1);
-        buf.put(basenum, strlen(basenum));
+        captureclientmode::baseinfo &b = capturemode.bases[i];
+        if(b.valid() && capturemode.insidebase(b, player1->feetpos()))
+        {
+            if(buf.length()) buf.add(' ');
+            defformatstring(basenum, "%d", i+1);
+            buf.put(basenum, strlen(basenum));
+        }
     }
-}
-buf.add('\0');
-result(buf.getbuf());
+    buf.add('\0');
+    result(buf.getbuf());
 });
 
-/// process capture mode specific network messages.
-inline void parse_client_capture_message(int type, int sender, int chan, packetbuf &p)
-{
-    switch(type)
-    {
-        case N_BASEINFO:
-        {
-            int base = getint(p);
-            string owner, enemy;
-            getstring(text, p);
-            copystring(owner, text);
-            getstring(text, p);
-            copystring(enemy, text);
-            int converted = getint(p), ammo = getint(p);
-            if(m_capture) capturemode.updatebase(base, owner, enemy, converted, ammo);
-            break;
-        }
 
-        case N_BASEREGEN:
-        {
-            int rcn = getint(p), health = getint(p), armour = getint(p), ammotype = getint(p), ammo = getint(p);
-            fpsent *regen = rcn==player1->clientnum ? player1 : getclient(rcn);
-            if(regen && m_capture)
-            {
-                regen->health = health;
-                regen->armourtype = A_GREEN;
-                regen->armour = armour;
-                if(ammotype>=GUN_SG && ammotype<=GUN_PISTOL) regen->ammo[ammotype] = ammo;
-            }
-            break;
-        }
-
-        case N_BASES:
-        {
-            int numbases = getint(p);
-            loopi(numbases)
-            {
-                int ammotype = getint(p);
-                string owner, enemy;
-                getstring(text, p);
-                copystring(owner, text);
-                getstring(text, p);
-                copystring(enemy, text);
-                int converted = getint(p), ammo = getint(p);
-                capturemode.initbase(i, ammotype, owner, enemy, converted, ammo);
-            }
-            break;
-        }
-        case N_BASESCORE:
-        {
-            int base = getint(p);
-            getstring(text, p);
-            int total = getint(p);
-            if(m_capture) capturemode.setscore(base, text, total);
-            break;
-        }
-
-        case N_REPAMMO:
-        {
-            int rcn = getint(p), ammotype = getint(p);
-            fpsent *r = rcn==player1->clientnum ? player1 : getclient(rcn);
-            if(r && m_capture) capturemode.receiveammo(r, ammotype);
-            break;
-        }
-    }
-}
+} // ns game

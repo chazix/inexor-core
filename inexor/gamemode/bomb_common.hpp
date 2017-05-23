@@ -1,9 +1,6 @@
 #pragma once
 #include "inexor/shared/geom.hpp"
 
-namespace server
-{
-
 struct spawnloc
 {
     vec o;
@@ -17,4 +14,3 @@ struct bombmode
 {
 
 };
-} // ns server

@@ -1,4 +1,16 @@
 #pragma once
+#include "inexor/fpsgame/teaminfo.hpp"
+#include "inexor/fpsgame/fpsent.hpp"
+
+namespace game {
+
+extern SharedVar<float> minimapalpha;
+extern float calcradarscale();
+extern void drawminimap(fpsent *d, float x, float y, float s);
+extern void setradartex();
+extern void drawradar(float x, float y, float s);
+extern void drawteammates(fpsent *d, float x, float y, float s);
+extern void setbliptex(int team, const char *type = "");
 
 struct clientmode
 {
@@ -15,6 +27,7 @@ struct clientmode
     virtual int respawnwait(fpsent *d) { return 0; }
     virtual void pickspawn(fpsent *d) { findplayerspawn(d); }
     virtual void senditems(packetbuf &p) {}
+    virtual void addplayer(fpsent *d) {}
     virtual void removeplayer(fpsent *d) {}
     virtual void gameover() {}
     virtual bool hidefrags() { return false; }
@@ -27,5 +40,9 @@ struct clientmode
     virtual void killed(fpsent *d, fpsent *actor) {}
     virtual void gameconnect(fpsent *d) {}
     virtual void renderscoreboard(g3d_gui &g, scoregroup &sg, int fgcolor, int bgcolor) {}
+    /// Parse game mode specific network messages.
+    /// @return true if message got handled.
+    virtual bool parse_network_message(int type, ucharbuf &p) = 0;
 };
 
+} // ns game

@@ -1,14 +1,18 @@
 #pragma once
 #include "inexor/fpsgame/game.hpp"
-#include "inexor/fpsgame/network_types.hpp"
 #include "inexor/gamemode/hideandseek_common.hpp"
 #include "inexor/gamemode/gamemode_client.hpp"
 
+
+#define ishider(ci) (strcmp(ci->team, TEAM_HIDE) == 0 && ci->state != CS_SPECTATOR ? true : false)
+#define isseeker(ci) (strcmp(ci->team, TEAM_SEEK) == 0 && ci->state != CS_SPECTATOR ? true : false)
+
+namespace game {
+
 struct hideandseekclientmode : clientmode, hideandseekmode
 {
+    static constexpr int STARTINVISIBLESECS = 30;
 
-
-#define STARTINVISIBLESECS 30
     void setup() {}
 
     void drawblip(fpsent *d, float x, float y, float s, const vec &pos, float size_factor)
@@ -73,7 +77,7 @@ struct hideandseekclientmode : clientmode, hideandseekmode
     {
     }
 
-    void renderscoreboard(g3d_gui &g, game::scoregroup &sg, int fgcolor, int bgcolor)
+    void renderscoreboard(g3d_gui &g, scoregroup &sg, int fgcolor, int bgcolor)
     {
         /*
         if (showhideandseekrole) {
@@ -106,23 +110,25 @@ struct hideandseekclientmode : clientmode, hideandseekmode
     {
         return true;
     }
+
+    bool parse_network_message(int type, ucharbuf &p) override
+    {
+        switch(type)
+        {
+            /*
+            case N_RACEINFO:
+            {
+              int rcn = getint(p);
+              return true;
+            }
+            */
+            default: break;
+        }
+        return false;
+    }
 };
 
 extern hideandseekclientmode hideandseekmode;
 
-/// process bomb mode specific network messages.
-/// @param ci the sender.
-inline void parse_client_bomb_message(int type, clientinfo *ci, packetbuf &p)
-{
-    switch(type)
-    {
-        /*
-        case N_RACEINFO:
-        {
-          int rcn = getint(p);
-          break;
-        }
-        */
-        default: break;
-    }
-}
+
+} // ns game
