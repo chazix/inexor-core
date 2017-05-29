@@ -8,7 +8,7 @@ class InexorConan(ConanFile):
     requires = dependencies.requires
 
     generators = "cmake"
-    default_options = dependencies.requires
+    default_options = dependencies.options
 
     def configure(self):
         if self.settings.compiler == "gcc":

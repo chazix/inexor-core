@@ -1,4 +1,7 @@
-requires = ("InexorGlueGen/0.6.0alpha@inexorgame/testing",
+requires = (("InexorGlueGen/0.6.0alpha@inexorgame/testing"),
+            ("Protobuf/3.1.0@inexorgame/stable"),
+            ("gRPC/1.1.0-dev@inexorgame/stable"),
+            ("doxygen/1.8.13@inexorgame/testing"),
             ("Boost/1.64.0@inexorgame/stable"),
             ("RapidJSON/1.0.2@inexorgame/stable"),
             ("zlib/1.2.11@lasote/stable"),
@@ -7,9 +10,8 @@ requires = ("InexorGlueGen/0.6.0alpha@inexorgame/testing",
             ("spdlog/0.10.0@memsharded/stable"),
             ("SDL2/2.0.5@lasote/stable"),
             ("SDL2_image/2.0.1@lasote/stable"),
-            ("CEF/3.2704.1424.gc3f0a5b@Croydon/stable"),
-            ("Protobuf/3.1.0@inexorgame/stable"),
-            ("gRPC/1.1.0-dev@inexorgame/stable"))
+            ("CEF/3.2704.1424.gc3f0a5b@Croydon/stable")
+           )
 
 options = '''
   zlib:shared=False
