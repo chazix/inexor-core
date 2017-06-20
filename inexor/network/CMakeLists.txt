@@ -3,7 +3,11 @@
 declare_module(network .)
 
 # exclude any template file from the source list (it wont compile)
-filter_from_module_lists("template" network)
+foreach(src ${NETWORK_MODULE_SOURCES})
+  if(src MATCHES ".*template.*")
+    list(REMOVE_ITEM NETWORK_MODULE_SOURCES ${src})
+  endif()
+endforeach()
 add_lib(network)
 
 include(require_run_gluegen.cmake)

@@ -39,47 +39,6 @@ function(declare_module NAME PATH)
   set(ALL_HEADERS ${ALL_HEADERS} ${headers} CACHE INTERNAL "")
 endfunction()
 
-# USAGE: filter_from_module_lists(<searchword> [<modulename>])
-#
-# Remove any source file containing the searchword from the module lists generated with declare_module()
-#
-# ARGUMENTS:
-#   SEARCHWORD – The pattern the file has to fulfill to be removed, e.g. "template"
-#   MODULENAME – e.g. "filesystem" -> FILESYSTEM_MODULE_HEADERS and FILESYSTEM_MODULE_SOURCES lists will get searched through.
-#                if no argument is given
-#
-function(filter_from_module_lists SEARCHWORD)
-
-  if(ALL_MODULES)
-    message("PING")
-    set(modules ${ARGN})
-  else()
-    message("PONG")
-    set(modules ${ALL_MODULES})
-  endif()
-
-  foreach(modulename ${modules})
-
-    string(TOUPPER ${modulename} module)
-
-    foreach(filename ${${module}_MODULE_SOURCES})
-      if(filename MATCHES ".*${SEARCHWORD}.*")
-        list(REMOVE_ITEM ${module}_MODULE_SOURCES ${filename})
-      endif()
-    endforeach()
-    foreach(filename ${${module}_MODULE_HEADERS})
-      if(filename MATCHES ".*${SEARCHWORD}.*")
-        list(REMOVE_ITEM ${module}_MODULE_HEADERS ${filename})
-      endif()
-    endforeach()
-
-    set(${module}_MODULE_SOURCES ${${module}_MODULE_SOURCES} PARENT_SCOPE)
-    set(${module}_MODULE_HEADERS ${${module}_MODULE_HEADERS} PARENT_SCOPE)
-  endforeach()
-endfunction()
-
-
-
 # USAGE: group_sources(file1 file2 file3)
 #
 # Set up source groups (for better browsing inside IDEs) for the provided list of source files.
