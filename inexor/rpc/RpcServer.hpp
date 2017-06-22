@@ -9,6 +9,7 @@
 #include <queue>
 #include <functional>
 #include <chrono>
+#include <thread>
 
 #include <grpc/grpc.h>
 #include <grpc++/grpc++.h>
@@ -356,6 +357,10 @@ inline void RpcServer<MSG_TYPE, ASYNC_SERVICE_TYPE>::block_until_initialized()
     auto time_start = steady_clock::now();
     while(initialized != true)
     {
+
+    	// Prevent busy loop
+    	std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
         //if(duration_cast<seconds>(steady_clock::now()-time_start).count()> 10)
         //{
         //    spdlog::get("global")->error("[GRPC Server] No startup synchronisation finished event received after 10 seconds."); 
