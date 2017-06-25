@@ -26,7 +26,7 @@ matrix:
       dist: trusty
       language: cpp
       compiler: gcc
-      env: TARGET=linux_gcc CONAN_COMPILER='gcc' CONAN_COMPILER_VERSION='5.2'
+      env: TARGET=linux_gcc CONAN_COMPILER='gcc' CONAN_COMPILER_VERSION='5.4'
 
     - os: linux
       sudo: required
@@ -34,7 +34,7 @@ matrix:
       env: TARGET=apidoc
       git:
         submodules: false
- 
+
     - os: linux
       sudo: required
       dist: trusty
@@ -69,5 +69,4 @@ deploy:
     repo: inexor-game/code
 
 after_deploy:
-  - bash tool/travis.sh target_after_deploy 
-
+  - bash tool/travis.sh target_after_deploy
