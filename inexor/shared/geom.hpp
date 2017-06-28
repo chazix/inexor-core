@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include "inexor/shared/cube_loops.hpp"
 #include "inexor/shared/cube_types.hpp"
 
 #include <boost/algorithm/clamp.hpp> // TODO replace with std::clamp as soon as C++17 is our target.
