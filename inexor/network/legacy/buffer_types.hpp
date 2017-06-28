@@ -97,10 +97,10 @@ struct databuf
     /// skip the first n elemnts of the buffer.
     void offset(int n)
     {
-        n = min(n, maxlen);
+        n = std::min(n, maxlen);
         buf += n;
         maxlen -= n;
-        len = max(len-n, 0);
+        len = std::max(len-n, 0);
     }
 
     T *getbuf() const { return buf; }

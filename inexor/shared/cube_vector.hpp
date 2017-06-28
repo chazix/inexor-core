@@ -9,6 +9,7 @@
 #include "inexor/shared/cube_loops.hpp"
 #include "inexor/shared/cube_types.hpp" //uchar
 #include "inexor/network/legacy/buffer_types.hpp" // databuf
+#include "inexor/util/random.hpp"
 
 #include <algorithm>
 
@@ -186,7 +187,7 @@ template <class T, int MINSIZE = 8> struct vector
     {
         for(int i = 0; i < ulen; i++)
         {
-            int indx = rnd(ulen);
+            int indx = inexor::util::rnd<int>(ulen);
             T temp = buf[i];
             buf[i] = buf[indx];
             buf[indx] = temp;
