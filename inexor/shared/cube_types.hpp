@@ -28,4 +28,6 @@ typedef char string[MAXSTRLEN];
 #define SQRT3 (1.7320508f)
 #define RAD (PI / 180.0f)
 
+#ifndef NULL
 #define NULL 0
+#endif
